@@ -83,7 +83,7 @@ class TeamsNotifier:
                             },
                             {
                                 "type": "TextBlock",
-                                "text": f"观测时间: {timestamp}",
+                                "text": f"探测时间: {timestamp}",
                                 "wrap": True,
                             },
                             {
