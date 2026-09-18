@@ -4,7 +4,7 @@
 
 **Goal:** Build a Python 3.11+ asynchronous CLI that polls configured WAN-specific public-IP endpoints, persists baselines locally, and sends a single Teams summary when a known WAN IP changes.
 
-**Architecture:** Load YAML into validated Pydantic models with environment overrides, probe WANs concurrently while trying each WAN's URLs sequentially, and coordinate state comparison/notification in a service layer. Persist state through an atomic JSON store and keep HTTP, Teams, and filesystem adapters behind focused infrastructure classes.
+**Architecture:** Load YAML into validated Pydantic models with environment overrides, probe servers concurrently while trying each WAN's URLs sequentially, and coordinate state comparison/notification in a service layer. Persist state through an atomic JSON store and keep HTTP, Teams, and filesystem adapters behind focused infrastructure classes.
 
 **Tech Stack:** Python 3.11+, `uv`, `asyncio`, `httpx`, `pydantic`, `pydantic-settings`, `PyYAML`, `structlog`, `pytest`, `pytest-asyncio`, `respx`, `ruff`, and `mypy`.
 
@@ -177,7 +177,7 @@ def test_load_config_reads_wan_urls_and_interval(tmp_path: Path) -> None:
         "state_file: ./state.json\n"
         "teams:\n"
         "  webhook_url: https://example.test/hook\n"
-        "wans:\n"
+        "servers:\n"
         "  wan1:\n"
         "    - https://ifconfig.me/ip\n"
         "    - https://ipinfo.io/ip\n",
@@ -187,7 +187,7 @@ def test_load_config_reads_wan_urls_and_interval(tmp_path: Path) -> None:
     config = load_config(path)
 
     assert config.interval_seconds == 60
-    assert config.wans["wan1"] == (
+    assert config.servers["wan1"] == (
         "https://ifconfig.me/ip",
         "https://ipinfo.io/ip",
     )
@@ -196,7 +196,7 @@ def test_load_config_reads_wan_urls_and_interval(tmp_path: Path) -> None:
 
 def test_load_config_rejects_non_positive_interval(tmp_path: Path) -> None:
     path = tmp_path / "config.yaml"
-    path.write_text("interval_seconds: 0\nwans: {wan1: [https://example.test]}\n")
+    path.write_text("interval_seconds: 0\nservers: {wan1: [https://example.test]}\n")
 
     with pytest.raises(ValidationError):
         load_config(path)
@@ -222,7 +222,7 @@ class AppConfig(BaseModel):
     interval_seconds: PositiveInt = 60
     state_file: Path = Path("public-ip-state.json")
     teams: TeamsConfig = TeamsConfig()
-    wans: dict[str, tuple[HttpUrl, ...]]
+    servers: dict[str, tuple[HttpUrl, ...]]
 
 
 def load_config(path: Path) -> AppConfig:
@@ -454,7 +454,7 @@ async def test_first_cycle_saves_baseline_without_notifying() -> None:
 
 
 @pytest.mark.asyncio
-async def test_known_ip_change_notifies_all_current_wans_and_then_saves() -> None:
+async def test_known_ip_change_notifies_all_current_servers_and_then_saves() -> None:
     service = make_service(
         previous={"wan1": "203.0.113.10", "wan2": "198.51.100.20"},
         observations={"wan1": "203.0.113.11", "wan2": "198.51.100.20"},
@@ -484,7 +484,7 @@ async def test_webhook_failure_keeps_previous_state_for_retry() -> None:
     assert service.store.saved is None
 ```
 
-Also test that a `None` observation keeps the prior IP, that a WAN with no prior value establishes a baseline without notification, and that multiple changed WANs produce one notifier call.
+Also test that a `None` observation keeps the prior IP, that a WAN with no prior value establishes a baseline without notification, and that multiple changed servers produce one notifier call.
 
 - [ ] **Step 2: Run monitor tests and confirm failure**
 

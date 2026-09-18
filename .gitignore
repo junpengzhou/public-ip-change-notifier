@@ -25,6 +25,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+.run
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -232,3 +233,6 @@ __marimo__/
 
 ### VS Code ###
 .vscode/
+
+# Public IP notifier runtime state
+/data/public-ip-state.json

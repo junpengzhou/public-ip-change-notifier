@@ -17,7 +17,7 @@ def test_load_config_when_yaml_is_valid_then_reads_interval_and_wan_urls(
         "state_file: ./state.json\n"
         "teams:\n"
         "  webhook_url: https://example.test/hook\n"
-        "wans:\n"
+        "servers:\n"
         "  wan1:\n"
         "    - https://ifconfig.me/ip\n"
         "    - https://ipinfo.io/ip\n",
@@ -27,7 +27,7 @@ def test_load_config_when_yaml_is_valid_then_reads_interval_and_wan_urls(
     config = load_config(path)
 
     assert config.interval_seconds == 60
-    assert tuple(str(url) for url in config.wans["wan1"]) == (
+    assert tuple(str(url) for url in config.servers["wan1"]) == (
         "https://ifconfig.me/ip",
         "https://ipinfo.io/ip",
     )
@@ -41,7 +41,7 @@ def test_load_config_when_environment_overrides_interval_then_uses_override(
 ) -> None:
     path = tmp_path / "config.yaml"
     path.write_text(
-        "interval_seconds: 60\nwans:\n  wan1:\n    - https://example.test/ip\n",
+        "interval_seconds: 60\nservers:\n  wan1:\n    - https://example.test/ip\n",
         encoding="utf-8",
     )
 
@@ -56,7 +56,7 @@ def test_load_config_when_interval_is_non_positive_then_rejects_configuration(
 ) -> None:
     path = tmp_path / "config.yaml"
     path.write_text(
-        "interval_seconds: 0\nwans:\n  wan1:\n    - https://example.test/ip\n",
+        "interval_seconds: 0\nservers:\n  wan1:\n    - https://example.test/ip\n",
         encoding="utf-8",
     )
 
@@ -68,7 +68,7 @@ def test_load_config_when_wan_has_no_urls_then_rejects_configuration(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "config.yaml"
-    path.write_text("wans:\n  wan1: []\n", encoding="utf-8")
+    path.write_text("servers:\n  wan1: []\n", encoding="utf-8")
 
     with pytest.raises(ValidationError):
         load_config(path)

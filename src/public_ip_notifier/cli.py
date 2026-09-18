@@ -86,7 +86,7 @@ async def _run(config_path: Path, once: bool) -> None:
     stop_event = asyncio.Event()
     _install_shutdown_handlers(stop_event)
     logger = structlog.get_logger("public_ip_notifier")
-    wans = {wan: tuple(str(url) for url in urls) for wan, urls in config.wans.items()}
+    servers = {wan: tuple(str(url) for url in urls) for wan, urls in config.servers.items()}
     webhook_url = config.teams.webhook_url
 
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -97,7 +97,7 @@ async def _run(config_path: Path, once: bool) -> None:
             if webhook_url is not None
             else None
         )
-        service = MonitorService(wans, prober, state_store, notifier, logger)
+        service = MonitorService(servers, prober, state_store, notifier, logger)
         await run_loop(service, config.interval_seconds, stop_event, once)
 
 

@@ -67,13 +67,13 @@ class MonitorService:
 
     def __init__(
         self,
-        wans: Mapping[str, Sequence[str]],
+        servers: Mapping[str, Sequence[str]],
         prober: WanProber,
         state_store: StateRepository,
         notifier: Notifier | None = None,
         logger: MonitorLogger | None = None,
     ) -> None:
-        self._wans = {wan: tuple(urls) for wan, urls in wans.items()}
+        self._servers = {wan: tuple(urls) for wan, urls in servers.items()}
         self._prober = prober
         self._state_store = state_store
         self._notifier = notifier
@@ -84,10 +84,10 @@ class MonitorService:
 
         previous = await self._state_store.load()
         observations = await asyncio.gather(
-            *(self._prober.probe_wan(wan, urls) for wan, urls in self._wans.items())
+            *(self._prober.probe_wan(wan, urls) for wan, urls in self._servers.items())
         )
         current_ips: dict[str, str | None] = {
-            wan: previous.get(wan) for wan in self._wans
+            wan: previous.get(wan) for wan in self._servers
         }
         changes: list[WanChange] = []
         for observation in observations:
@@ -107,7 +107,7 @@ class MonitorService:
         if self._notifier is None:
             self._logger.warning(
                 "ip_change_notification_disabled",
-                changed_wans=[change.wan for change in ordered_changes],
+                changed_servers=[change.wan for change in ordered_changes],
             )
             await self._state_store.save(merged_ips)
             return CycleResult(False, False, ordered_changes)

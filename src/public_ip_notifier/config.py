@@ -27,11 +27,11 @@ class AppConfig(BaseModel):
     interval_seconds: PositiveInt = 60
     state_file: Path = Path("public-ip-state.json")
     teams: TeamsConfig = Field(default_factory=TeamsConfig)
-    wans: dict[str, tuple[HttpUrl, ...]]
+    servers: dict[str, tuple[HttpUrl, ...]]
 
-    @field_validator("wans")
+    @field_validator("servers")
     @classmethod
-    def validate_wans(
+    def validate_servers(
         cls, value: dict[str, tuple[HttpUrl, ...]]
     ) -> dict[str, tuple[HttpUrl, ...]]:
         if not value:

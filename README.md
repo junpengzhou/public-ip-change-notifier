@@ -41,7 +41,7 @@ state_file: "./data/public-ip-state.json"
 teams:
   webhook_url: "https://outlook.office.com/webhook/..."
 
-wans:
+servers:
   wan1:
     - "https://ifconfig.me/ip"
     - "https://ipinfo.io/ip"

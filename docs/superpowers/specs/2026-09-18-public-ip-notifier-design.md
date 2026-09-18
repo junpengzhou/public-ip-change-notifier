@@ -29,7 +29,7 @@ state_file: "./data/public-ip-state.json"
 teams:
   webhook_url: "https://outlook.office.com/webhook/..."
 
-wans:
+servers:
   wan1:
     - "https://ifconfig.me/ip"
     - "https://ipinfo.io/ip"
@@ -42,7 +42,7 @@ wans:
 - `interval_seconds` 为正整数，控制每轮采集之间的间隔。
 - `state_file` 为本地持久化 JSON 文件路径。
 - `teams.webhook_url` 支持空值以禁用通知；配置变更通知但没有 URL 时记录结构化告警。
-- `wans` 是 WAN 名称到 URL 列表的映射；每个 WAN 至少有一个 URL。
+- `servers` 是 WAN 名称到 URL 列表的映射；每个 WAN 至少有一个 URL。
 - URL 必须使用 `http` 或 `https` 协议。
 - Webhook、间隔和状态文件等运行时值支持通过 `pydantic-settings` 环境变量覆盖，例如：
   - `PUBLIC_IP_NOTIFIER_TEAMS_WEBHOOK_URL`

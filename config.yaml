@@ -1,0 +1,20 @@
+# Poll all configured servers once per minute.
+interval_seconds: 60
+
+# The directory is created automatically on the first successful cycle.
+state_file: "./data/public-ip-state.json"
+
+teams:
+  # Set this value or use PUBLIC_IP_NOTIFIER_TEAMS_WEBHOOK_URL.
+  webhook_url: null
+
+# URLs under one WAN are tried in order until one returns a valid IP address.
+# Router policy routing must send each URL through the intended WAN interface.
+servers:
+  wan1:
+    - "https://api.ipify.org"
+    - "https://ifconfig.me/ip"
+    - "https://ipinfo.io/ip"
+  wan2:
+    - "https://api64.ipify.org"
+    - "https://icanhazip.com"
