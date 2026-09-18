@@ -29,10 +29,10 @@ class TeamsNotifier:
         self._mentions = tuple(mentions)
 
     async def send(
-            self,
-            changes: Sequence[WanChange],
-            current_ips: Mapping[str, str | None],
-            observed_at: datetime,
+        self,
+        changes: Sequence[WanChange],
+        current_ips: Mapping[str, str | None],
+        observed_at: datetime,
     ) -> None:
         """Send one aggregated Adaptive Card for an IP change cycle."""
 
@@ -41,9 +41,9 @@ class TeamsNotifier:
             response = await self._client.post(self._webhook_url, json=payload)
             response.raise_for_status()
         except (
-                httpx.TimeoutException,
-                httpx.RequestError,
-                httpx.HTTPStatusError,
+            httpx.TimeoutException,
+            httpx.RequestError,
+            httpx.HTTPStatusError,
         ) as exc:
             raise TeamsDeliveryError("Teams webhook delivery failed") from exc
 

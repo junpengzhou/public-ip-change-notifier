@@ -51,7 +51,7 @@ async def test_teams_notifier_when_change_then_posts_adaptive_card_attachment() 
 
 
 @pytest.mark.asyncio
-async def test_teams_notifier_when_mentions_are_configured_then_adds_at_text_and_entities() -> None:
+async def test_teams_notifier_when_mentions_are_configured_then_adds_mentions() -> None:
     with respx.mock(assert_all_called=True) as router:
         route = router.post("https://teams.test/webhook").mock(
             return_value=httpx.Response(202)
