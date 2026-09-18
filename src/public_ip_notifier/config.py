@@ -15,10 +15,25 @@ class ConfigLoadError(RuntimeError):
     """Raised when the YAML configuration cannot be loaded."""
 
 
+class TeamsMention(BaseModel):
+    """A Teams user that can be mentioned in a notification card."""
+
+    name: str
+    id: str
+
+    @field_validator("name", "id")
+    @classmethod
+    def validate_non_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Teams mention values must not be empty")
+        return value
+
+
 class TeamsConfig(BaseModel):
     """Teams notification configuration."""
 
     webhook_url: SecretStr | None = None
+    mentions: tuple[TeamsMention, ...] = ()
 
 
 class AppConfig(BaseModel):

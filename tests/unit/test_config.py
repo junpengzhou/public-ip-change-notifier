@@ -36,6 +36,68 @@ def test_load_config_when_yaml_is_valid_then_reads_interval_and_wan_urls(
     assert config.teams.webhook_url.get_secret_value() == "https://example.test/hook"
 
 
+def test_load_config_when_teams_mentions_are_configured_then_preserves_order_and_values(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "teams:\n"
+        "  mentions:\n"
+        "    - name: 张三\n"
+        "      id: zhangsan@example.com\n"
+        "    - name: 李四\n"
+        "      id: lisi@example.com\n"
+        "servers:\n"
+        "  wan1:\n"
+        "    - https://example.test/ip\n",
+        encoding="utf-8",
+    )
+
+    config = load_config(path)
+
+    assert [(item.name, item.id) for item in config.teams.mentions] == [
+        ("张三", "zhangsan@example.com"),
+        ("李四", "lisi@example.com"),
+    ]
+
+
+def test_load_config_when_teams_mention_name_is_missing_then_rejects_configuration(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "teams:\n"
+        "  mentions:\n"
+        "    - id: zhangsan@example.com\n"
+        "servers:\n"
+        "  wan1:\n"
+        "    - https://example.test/ip\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError):
+        load_config(path)
+
+
+def test_load_config_when_teams_mention_id_is_blank_then_rejects_configuration(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "teams:\n"
+        "  mentions:\n"
+        "    - name: 张三\n"
+        "      id: '   '\n"
+        "servers:\n"
+        "  wan1:\n"
+        "    - https://example.test/ip\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError):
+        load_config(path)
+
+
 def test_load_config_when_environment_overrides_interval_then_uses_override(
     tmp_path: Path,
 ) -> None:
