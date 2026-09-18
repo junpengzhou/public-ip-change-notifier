@@ -84,7 +84,9 @@ async def test_monitor_when_first_cycle_then_saves_baseline_without_notifying() 
 
 
 @pytest.mark.asyncio
-async def test_monitor_when_known_ip_changes_then_notifies_and_saves_all_servers() -> None:
+async def test_monitor_when_known_ip_changes_then_notifies_and_saves_all_servers() -> (
+    None
+):
     service, store, notifier = make_service(
         previous={"wan1": "203.0.113.10", "wan2": "198.51.100.20"},
         observations={"wan1": "203.0.113.11", "wan2": "198.51.100.20"},
@@ -151,7 +153,9 @@ async def test_monitor_when_new_wan_appears_then_establishes_baseline_only() -> 
 
 
 @pytest.mark.asyncio
-async def test_monitor_when_multiple_servers_change_then_sends_one_notification() -> None:
+async def test_monitor_when_multiple_servers_change_then_sends_one_notification() -> (
+    None
+):
     service, store, notifier = make_service(
         previous={"wan1": "203.0.113.10", "wan2": "198.51.100.20"},
         observations={"wan1": "203.0.113.11", "wan2": "198.51.100.21"},

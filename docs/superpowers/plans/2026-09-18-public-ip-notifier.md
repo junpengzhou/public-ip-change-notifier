@@ -20,13 +20,13 @@
 - Create `src/public_ip_notifier/domain/models.py`: immutable probe, state, and change models.
 - Create `src/public_ip_notifier/infra/probes.py`: asynchronous URL fallback probing.
 - Create `src/public_ip_notifier/infra/state_store.py`: asynchronous JSON load and atomic save.
-- Create `src/public_ip_notifier/infra/teams.py`: Teams MessageCard construction and webhook delivery.
+- Create `src/public_ip_notifier/infra/teams.py`: Teams Adaptive Card envelope construction and webhook delivery.
 - Create `src/public_ip_notifier/services/monitor.py`: one-cycle orchestration and notification/state transaction.
 - Create `src/public_ip_notifier/cli.py`: argument parsing, client lifecycle, polling loop, and signal shutdown.
 - Create `tests/unit/test_config.py`: configuration and environment behavior.
 - Create `tests/unit/test_state_store.py`: state persistence behavior.
 - Create `tests/unit/test_probes.py`: fallback and IP parsing behavior.
-- Create `tests/unit/test_teams.py`: MessageCard and HTTP response behavior.
+- Create `tests/unit/test_teams.py`: Adaptive Card envelope and HTTP response behavior.
 - Create `tests/unit/test_monitor.py`: first-run, change, failure, and aggregation behavior.
 - Create `tests/unit/test_cli.py`: one-shot and interval/shutdown behavior.
 
@@ -393,7 +393,7 @@ Run `git add src/public_ip_notifier/infra/probes.py tests/unit/test_probes.py &&
 
 - [ ] **Step 1: Write failing Teams tests**
 
-Test that `TeamsNotifier.send(changes, current_ips, observed_at)` POSTs to the configured URL with a MessageCard containing every current WAN IP and each old/new value. Register the URL with `respx`, assert `request.headers["content-type"]` begins with `application/json`, decode `request.content`, and assert `payload["@type"] == "MessageCard"`. Add a second test where the route returns HTTP 500 and assert a typed `TeamsDeliveryError` is raised.
+Test that `TeamsNotifier.send(changes, current_ips, observed_at)` POSTs to the configured URL with a `type: "message"` envelope containing a non-empty `attachments` array, an Adaptive Card `contentType`, every current WAN IP, and each old/new value. Register the URL with `respx`, assert `request.headers["content-type"]` begins with `application/json`, decode `request.content`, and assert `payload["attachments"][0]["content"]["type"] == "AdaptiveCard"`. Add a second test where the route returns HTTP 500 and assert a typed `TeamsDeliveryError` is raised.
 
 - [ ] **Step 2: Run the Teams tests and confirm failure**
 
@@ -416,7 +416,7 @@ class TeamsNotifier:
         current_ips: Mapping[str, str | None],
         observed_at: datetime,
     ) -> None:
-        """Send one aggregated Teams MessageCard for an IP change cycle."""
+        """Send one aggregated Teams Adaptive Card for an IP change cycle."""
 ```
 
 Build deterministic facts sorted by WAN name. Use `unknown` for `None`, include the ISO-8601 UTC timestamp, and include old/new values for every `WanChange`. POST JSON with `client.post`; catch `httpx.TimeoutException`, `httpx.RequestError`, and `httpx.HTTPStatusError`, then raise `TeamsDeliveryError` from the original exception. Call `response.raise_for_status()` so every non-2xx response follows the same error path.

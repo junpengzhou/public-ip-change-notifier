@@ -27,7 +27,7 @@ class TeamsNotifier:
         current_ips: Mapping[str, str | None],
         observed_at: datetime,
     ) -> None:
-        """Send one aggregated Teams MessageCard for an IP change cycle."""
+        """Send one aggregated Adaptive Card for an IP change cycle."""
 
         payload = self._build_payload(changes, current_ips, observed_at)
         try:
@@ -46,30 +46,63 @@ class TeamsNotifier:
         current_ips: Mapping[str, str | None],
         observed_at: datetime,
     ) -> dict[str, object]:
-        change_text = "\n".join(
-            f"{change.wan}: {change.previous_ip} -> {change.current_ip}"
-            for change in sorted(changes, key=lambda item: item.wan)
-        )
-        facts = [
+        change_facts = [
             {
-                "name": wan,
+                "title": change.wan,
+                "value": f"{change.previous_ip} -> {change.current_ip}",
+            }
+            for change in sorted(changes, key=lambda item: item.wan)
+        ]
+        current_facts = [
+            {
+                "title": wan,
                 "value": current_ip if current_ip is not None else "unknown",
             }
             for wan, current_ip in sorted(current_ips.items())
         ]
         timestamp = observed_at.astimezone(UTC).isoformat()
         return {
-            "@type": "MessageCard",
-            "@context": "http://schema.org/extensions",
-            "summary": "Public IP address changed",
-            "themeColor": "0076D7",
-            "title": "Public IP address changed",
-            "sections": [
+            "type": "message",
+            "attachments": [
                 {
-                    "activityTitle": "WAN IP change detected",
-                    "activitySubtitle": timestamp,
-                    "text": change_text,
-                    "facts": facts,
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "contentUrl": "",
+                    "content": {
+                        "$schema": (
+                            "http://adaptivecards.io/schemas/adaptive-card.json"
+                        ),
+                        "type": "AdaptiveCard",
+                        "version": "1.5",
+                        "body": [
+                            {
+                                "type": "TextBlock",
+                                "text": "Public IP address changed",
+                                "size": "Medium",
+                                "weight": "Bolder",
+                                "wrap": True,
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": f"Observed at: {timestamp}",
+                                "wrap": True,
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": "Changes",
+                                "weight": "Bolder",
+                                "spacing": "Medium",
+                            },
+                            {"type": "FactSet", "facts": change_facts},
+                            {
+                                "type": "TextBlock",
+                                "text": "Current WAN IPs",
+                                "weight": "Bolder",
+                                "spacing": "Medium",
+                            },
+                            {"type": "FactSet", "facts": current_facts},
+                        ],
+                        "msteams": {"entities": []},
+                    },
                 }
             ],
         }

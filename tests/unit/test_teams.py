@@ -10,13 +10,13 @@ from public_ip_notifier.infra.teams import TeamsDeliveryError, TeamsNotifier
 
 
 @pytest.mark.asyncio
-async def test_teams_notifier_when_change_then_posts_aggregated_message_card() -> None:
+async def test_teams_notifier_when_change_then_posts_adaptive_card_attachment() -> None:
     observed_at = datetime(2026, 9, 18, 8, 30, tzinfo=UTC)
     changes = (WanChange("wan1", "203.0.113.10", "203.0.113.11"),)
 
     with respx.mock(assert_all_called=True) as router:
         route = router.post("https://teams.test/webhook").mock(
-            return_value=httpx.Response(200)
+            return_value=httpx.Response(202)
         )
         async with httpx.AsyncClient() as client:
             await TeamsNotifier(client, "https://teams.test/webhook").send(
@@ -28,7 +28,15 @@ async def test_teams_notifier_when_change_then_posts_aggregated_message_card() -
     request = route.calls[0].request
     payload = json.loads(request.content)
     assert request.headers["content-type"].startswith("application/json")
-    assert payload["@type"] == "MessageCard"
+    assert payload["type"] == "message"
+    assert isinstance(payload["attachments"], list)
+    assert len(payload["attachments"]) == 1
+    attachment = payload["attachments"][0]
+    assert attachment["contentType"] == "application/vnd.microsoft.card.adaptive"
+    assert attachment["contentUrl"] == ""
+    assert attachment["content"]["type"] == "AdaptiveCard"
+    assert attachment["content"]["version"] == "1.5"
+    assert attachment["content"]["msteams"] == {"entities": []}
     payload_text = json.dumps(payload)
     assert "wan1" in payload_text
     assert "203.0.113.10" in payload_text

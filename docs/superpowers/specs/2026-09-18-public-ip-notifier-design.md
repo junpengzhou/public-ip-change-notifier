@@ -72,7 +72,7 @@ src/public_ip_notifier/
 - `domain/models.py`：定义探测结果、状态和变更事件等纯领域模型，不依赖基础设施。
 - `infra/probes.py`：封装 HTTP 探测、超时、状态码和 IP 解析；同一 WAN 按 URL 顺序取第一个成功结果。
 - `infra/state_store.py`：读取/写入 JSON 状态；写入使用临时文件和 `os.replace`。
-- `infra/teams.py`：将领域通知转换为 Teams MessageCard 并发送 webhook。
+- `infra/teams.py`：将领域通知转换为 Teams Adaptive Card envelope 并发送 webhook。
 - `services/monitor.py`：并发采集 WAN，比较状态，构建汇总通知，并协调状态提交。
 - `cli.py`：解析 `--config`，创建依赖，运行轮询循环，处理优雅退出。
 
@@ -87,7 +87,7 @@ src/public_ip_notifier/
 3. 某 WAN 全部 URL 失败时，保留历史 IP；没有历史 IP 则保持未知。该失败不阻塞其他 WAN。
 4. 读取现有状态，识别已经有历史值且本轮 IP 不同的 WAN。
 5. 状态不存在、为空或仅出现新 WAN 时，只建立基线，不发送通知。
-6. 如果存在已知 WAN 的 IP 变化，构建一条 MessageCard：包含时间、发生变化的 WAN 及旧/新 IP，并列出所有 WAN 当前已知 IP。
+6. 如果存在已知 WAN 的 IP 变化，构建一条包含 `attachments` 数组的 Adaptive Card envelope：包含时间、发生变化的 WAN 及旧/新 IP，并列出所有 WAN 当前已知 IP。
 7. webhook 成功后原子提交本轮状态。webhook 失败时保留旧状态并记录错误，使下一轮可以重试同一变更。
 
 状态文件初始格式为：
@@ -103,7 +103,7 @@ src/public_ip_notifier/
 
 ## 6. Teams 通知
 
-使用 Incoming Webhook 兼容的 MessageCard JSON。通知内容至少包括：
+使用 Power Automate/Teams Incoming Webhook 兼容的 Adaptive Card JSON envelope。顶层 payload 使用 `type: "message"` 和非空 `attachments` 数组；每个 attachment 使用 `contentType: "application/vnd.microsoft.card.adaptive"`、空字符串 `contentUrl`，卡片版本为 `1.5`，并包含 `msteams.entities`。通知内容至少包括：
 
 - 采集时间。
 - 触发通知的 WAN 及旧 IP/新 IP。
@@ -127,10 +127,9 @@ src/public_ip_notifier/
 - URL fallback：第一个 URL 失败或返回非法 IP 时使用后续 URL。
 - 多 WAN 并发采集，单个 WAN 失败不影响其他 WAN。
 - 首次运行只建立状态，不调用 Teams。
-- 已知 WAN 变化时发送包含所有 WAN IP 的 MessageCard，并在 webhook 成功后提交状态。
+- 已知 WAN 变化时发送包含所有 WAN IP 的 Adaptive Card，并在 webhook 成功后提交状态。
 - webhook 失败时状态不前进，下一轮仍能重试变更。
 - 状态文件原子写入，以及损坏 JSON 的明确错误。
 - CLI 单轮运行、周期循环和信号退出。
 
 新增函数必须带类型注解；新增公共 API 使用 Google 风格 docstring。实现不引入未登记的第三方依赖，新增依赖原因在项目配置/变更说明中记录。
-
