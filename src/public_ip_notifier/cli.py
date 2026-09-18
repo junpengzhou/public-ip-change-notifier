@@ -67,18 +67,19 @@ async def run_loop(
 
 
 def _install_shutdown_handlers(stop_event: asyncio.Event) -> None:
+    def request_shutdown(*_args: object) -> object:
+        stop_event.set()
+        return None
+
     loop = asyncio.get_running_loop()
     for signal_name in ("SIGINT", "SIGTERM"):
         signal_value = getattr(signal, signal_name, None)
         if signal_value is None:
             continue
         try:
-            loop.add_signal_handler(signal_value, stop_event.set)
+            loop.add_signal_handler(signal_value, request_shutdown)
         except (NotImplementedError, RuntimeError, ValueError):
-            signal.signal(
-                signal_value,
-                lambda _signum, _frame: stop_event.set(),
-            )
+            signal.signal(signal_value, request_shutdown)
 
 
 async def _run(config_path: Path, once: bool) -> None:
@@ -86,7 +87,9 @@ async def _run(config_path: Path, once: bool) -> None:
     stop_event = asyncio.Event()
     _install_shutdown_handlers(stop_event)
     logger = structlog.get_logger("public_ip_notifier")
-    servers = {wan: tuple(str(url) for url in urls) for wan, urls in config.servers.items()}
+    servers = {
+        wan: tuple(str(url) for url in urls) for wan, urls in config.servers.items()
+    }
     webhook_url = config.teams.webhook_url
 
     async with httpx.AsyncClient(timeout=10.0) as client:
