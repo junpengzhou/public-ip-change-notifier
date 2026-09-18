@@ -19,20 +19,20 @@ class TeamsNotifier:
     """Send aggregated public IP change cards to a Teams webhook."""
 
     def __init__(
-        self,
-        client: httpx.AsyncClient,
-        webhook_url: str,
-        mentions: Sequence[TeamsMention] = (),
+            self,
+            client: httpx.AsyncClient,
+            webhook_url: str,
+            mentions: Sequence[TeamsMention] = (),
     ) -> None:
         self._client = client
         self._webhook_url = webhook_url
         self._mentions = tuple(mentions)
 
     async def send(
-        self,
-        changes: Sequence[WanChange],
-        current_ips: Mapping[str, str | None],
-        observed_at: datetime,
+            self,
+            changes: Sequence[WanChange],
+            current_ips: Mapping[str, str | None],
+            observed_at: datetime,
     ) -> None:
         """Send one aggregated Adaptive Card for an IP change cycle."""
 
@@ -41,17 +41,17 @@ class TeamsNotifier:
             response = await self._client.post(self._webhook_url, json=payload)
             response.raise_for_status()
         except (
-            httpx.TimeoutException,
-            httpx.RequestError,
-            httpx.HTTPStatusError,
+                httpx.TimeoutException,
+                httpx.RequestError,
+                httpx.HTTPStatusError,
         ) as exc:
             raise TeamsDeliveryError("Teams webhook delivery failed") from exc
 
     def _build_payload(
-        self,
-        changes: Sequence[WanChange],
-        current_ips: Mapping[str, str | None],
-        observed_at: datetime,
+            self,
+            changes: Sequence[WanChange],
+            current_ips: Mapping[str, str | None],
+            observed_at: datetime,
     ) -> dict[str, object]:
         change_facts = [
             {
@@ -67,7 +67,7 @@ class TeamsNotifier:
             }
             for wan, current_ip in sorted(current_ips.items())
         ]
-        timestamp = observed_at.astimezone(UTC).isoformat()
+        timestamp = observed_at.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         mention_entities: list[dict[str, object]] = [
             {
                 "type": "mention",
@@ -80,13 +80,16 @@ class TeamsNotifier:
             {
                 "type": "TextBlock",
                 "text": "⚠️公网出口 IP 地址变更通知",
-                "size": "Medium",
+                "size": "Large",
                 "weight": "Bolder",
+                "color": "Attention",
+                "style": "Heading",
                 "wrap": True,
             },
             {
                 "type": "TextBlock",
-                "text": f"探测时间: {timestamp}",
+                "text": f"变更时间: {timestamp}",
+                "weight": "Bolder",
                 "wrap": True,
             },
             {
@@ -98,7 +101,7 @@ class TeamsNotifier:
             {"type": "FactSet", "facts": change_facts},
             {
                 "type": "TextBlock",
-                "text": "当前所有WAN口的公网出口IP",
+                "text": "变更后 WAN IP",
                 "weight": "Bolder",
                 "spacing": "Medium",
             },

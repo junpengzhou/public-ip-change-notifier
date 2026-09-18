@@ -6,7 +6,12 @@ state_file: "./data/public-ip-state.json"
 
 teams:
   # Set this value or use PUBLIC_IP_NOTIFIER_TEAMS_WEBHOOK_URL.
-  webhook_url: null
+  webhook_url: "https://default48b2d649c5c747f2814cc551f5ed70.1f.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/21/workflows/581ea7dd14614720a7b8f6771de9df72/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=xM8AOpWTWd5Zgh31mvTOBaL-P3ExsIBYzxwPhidjIj4"
+  mentions:
+    - name: "Erica Shen"
+      id: "EricaShen@ifintech.ltd"
+    - name: "Qogir Wu"
+      id: "QogirWu@ifintech.ltd"
 
 # URLs under one WAN are tried in order until one returns a valid IP address.
 # Router policy routing must send each URL through the intended WAN interface.
@@ -16,4 +21,3 @@ servers:
     - "https://ipinfo.io/ip"
   wan2:
     - "https://icanhazip.com"
-    - "https://api64.ipify.org"
