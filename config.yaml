@@ -12,9 +12,8 @@ teams:
 # Router policy routing must send each URL through the intended WAN interface.
 servers:
   wan1:
-    - "https://api.ipify.org"
     - "https://ifconfig.me/ip"
     - "https://ipinfo.io/ip"
   wan2:
-    - "https://api64.ipify.org"
     - "https://icanhazip.com"
+    - "https://api64.ipify.org"
