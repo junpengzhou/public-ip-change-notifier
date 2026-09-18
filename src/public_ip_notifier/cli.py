@@ -1,0 +1,114 @@
+"""Command-line entrypoint and long-running monitor loop."""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import logging
+import signal
+from pathlib import Path
+from typing import Protocol
+
+import httpx
+import structlog
+from pydantic import ValidationError
+
+from public_ip_notifier.config import ConfigLoadError, load_config
+from public_ip_notifier.infra.probes import IpProbe
+from public_ip_notifier.infra.state_store import StateStore, StateStoreError
+from public_ip_notifier.infra.teams import TeamsNotifier
+from public_ip_notifier.services.monitor import CycleResult, MonitorService
+
+
+class CycleRunner(Protocol):
+    """One-cycle interface used by the polling loop."""
+
+    async def run_once(self) -> CycleResult:
+        """Run one collection cycle."""
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the command-line parser."""
+
+    parser = argparse.ArgumentParser(
+        description="Monitor public IP addresses by WAN and notify Teams."
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        required=True,
+        help="Path to the YAML configuration file.",
+    )
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Run one collection cycle and exit.",
+    )
+    return parser
+
+
+async def run_loop(
+    service: CycleRunner,
+    interval_seconds: float,
+    stop_event: asyncio.Event,
+    once: bool,
+) -> None:
+    """Run an immediate cycle and then wait between cycles until stopped."""
+
+    await service.run_once()
+    if once:
+        return
+
+    while not stop_event.is_set():
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
+        except TimeoutError:
+            await service.run_once()
+
+
+def _install_shutdown_handlers(stop_event: asyncio.Event) -> None:
+    loop = asyncio.get_running_loop()
+    for signal_name in ("SIGINT", "SIGTERM"):
+        signal_value = getattr(signal, signal_name, None)
+        if signal_value is None:
+            continue
+        try:
+            loop.add_signal_handler(signal_value, stop_event.set)
+        except (NotImplementedError, RuntimeError, ValueError):
+            signal.signal(
+                signal_value,
+                lambda _signum, _frame: stop_event.set(),
+            )
+
+
+async def _run(config_path: Path, once: bool) -> None:
+    config = load_config(config_path)
+    stop_event = asyncio.Event()
+    _install_shutdown_handlers(stop_event)
+    logger = structlog.get_logger("public_ip_notifier")
+    wans = {wan: tuple(str(url) for url in urls) for wan, urls in config.wans.items()}
+    webhook_url = config.teams.webhook_url
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        prober = IpProbe(client, logger)
+        state_store = StateStore(config.state_file)
+        notifier = (
+            TeamsNotifier(client, webhook_url.get_secret_value())
+            if webhook_url is not None
+            else None
+        )
+        service = MonitorService(wans, prober, state_store, notifier, logger)
+        await run_loop(service, config.interval_seconds, stop_event, once)
+
+
+def main() -> None:
+    """Parse arguments and run the asynchronous notifier."""
+
+    logging.basicConfig(level=logging.INFO)
+    args = build_parser().parse_args()
+    logger = structlog.get_logger("public_ip_notifier")
+    try:
+        asyncio.run(_run(args.config, args.once))
+    except (ConfigLoadError, StateStoreError, ValidationError) as exc:
+        logger.error("notifier_startup_failed", error_type=type(exc).__name__)
+        raise SystemExit(1) from exc
