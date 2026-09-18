@@ -22,10 +22,10 @@ class TeamsNotifier:
         self._webhook_url = webhook_url
 
     async def send(
-        self,
-        changes: Sequence[WanChange],
-        current_ips: Mapping[str, str | None],
-        observed_at: datetime,
+            self,
+            changes: Sequence[WanChange],
+            current_ips: Mapping[str, str | None],
+            observed_at: datetime,
     ) -> None:
         """Send one aggregated Adaptive Card for an IP change cycle."""
 
@@ -34,17 +34,17 @@ class TeamsNotifier:
             response = await self._client.post(self._webhook_url, json=payload)
             response.raise_for_status()
         except (
-            httpx.TimeoutException,
-            httpx.RequestError,
-            httpx.HTTPStatusError,
+                httpx.TimeoutException,
+                httpx.RequestError,
+                httpx.HTTPStatusError,
         ) as exc:
             raise TeamsDeliveryError("Teams webhook delivery failed") from exc
 
     @staticmethod
     def _build_payload(
-        changes: Sequence[WanChange],
-        current_ips: Mapping[str, str | None],
-        observed_at: datetime,
+            changes: Sequence[WanChange],
+            current_ips: Mapping[str, str | None],
+            observed_at: datetime,
     ) -> dict[str, object]:
         change_facts = [
             {
@@ -76,26 +76,26 @@ class TeamsNotifier:
                         "body": [
                             {
                                 "type": "TextBlock",
-                                "text": "Public IP address changed",
+                                "text": "⚠️公网出口 IP 地址变更通知",
                                 "size": "Medium",
                                 "weight": "Bolder",
                                 "wrap": True,
                             },
                             {
                                 "type": "TextBlock",
-                                "text": f"Observed at: {timestamp}",
+                                "text": f"观测时间: {timestamp}",
                                 "wrap": True,
                             },
                             {
                                 "type": "TextBlock",
-                                "text": "Changes",
+                                "text": "变更内容",
                                 "weight": "Bolder",
                                 "spacing": "Medium",
                             },
                             {"type": "FactSet", "facts": change_facts},
                             {
                                 "type": "TextBlock",
-                                "text": "Current WAN IPs",
+                                "text": "当前所有WAN口的公网出口IP",
                                 "weight": "Bolder",
                                 "spacing": "Medium",
                             },
