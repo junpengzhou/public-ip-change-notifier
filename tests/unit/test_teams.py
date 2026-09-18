@@ -10,9 +10,7 @@ from public_ip_notifier.infra.teams import TeamsDeliveryError, TeamsNotifier
 
 
 @pytest.mark.asyncio
-async def test_teams_notifier_when_change_then_posts_aggregated_message_card() -> (
-    None
-):
+async def test_teams_notifier_when_change_then_posts_aggregated_message_card() -> None:
     observed_at = datetime(2026, 9, 18, 8, 30, tzinfo=UTC)
     changes = (WanChange("wan1", "203.0.113.10", "203.0.113.11"),)
 
@@ -40,9 +38,7 @@ async def test_teams_notifier_when_change_then_posts_aggregated_message_card() -
 
 
 @pytest.mark.asyncio
-async def test_teams_notifier_when_webhook_fails_then_raises_delivery_error() -> (
-    None
-):
+async def test_teams_notifier_when_webhook_fails_then_raises_delivery_error() -> None:
     with respx.mock(assert_all_called=True) as router:
         router.post("https://teams.test/webhook").mock(return_value=httpx.Response(500))
         async with httpx.AsyncClient() as client:
