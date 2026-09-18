@@ -19,7 +19,11 @@ async def test_teams_notifier_when_change_then_posts_adaptive_card_attachment() 
             return_value=httpx.Response(202)
         )
         async with httpx.AsyncClient() as client:
-            await TeamsNotifier(client, "https://teams.test/webhook").send(
+            await TeamsNotifier(
+                client,
+                "https://teams.test/webhook",
+                mentions=(),
+            ).send(
                 changes,
                 {"wan1": "203.0.113.11", "wan2": None},
                 observed_at,

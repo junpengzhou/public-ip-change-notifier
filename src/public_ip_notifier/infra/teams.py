@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 import httpx
 
+from public_ip_notifier.config import TeamsMention
 from public_ip_notifier.domain.models import WanChange
 
 
@@ -17,9 +18,15 @@ class TeamsDeliveryError(RuntimeError):
 class TeamsNotifier:
     """Send aggregated public IP change cards to a Teams webhook."""
 
-    def __init__(self, client: httpx.AsyncClient, webhook_url: str) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        webhook_url: str,
+        mentions: Sequence[TeamsMention] = (),
+    ) -> None:
         self._client = client
         self._webhook_url = webhook_url
+        self._mentions = tuple(mentions)
 
     async def send(
             self,

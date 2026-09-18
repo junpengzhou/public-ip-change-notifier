@@ -96,7 +96,11 @@ async def _run(config_path: Path, once: bool) -> None:
         prober = IpProbe(client, logger)
         state_store = StateStore(config.state_file)
         notifier = (
-            TeamsNotifier(client, webhook_url.get_secret_value())
+            TeamsNotifier(
+                client,
+                webhook_url.get_secret_value(),
+                mentions=config.teams.mentions,
+            )
             if webhook_url is not None
             else None
         )
