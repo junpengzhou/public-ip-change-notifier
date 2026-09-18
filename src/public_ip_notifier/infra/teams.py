@@ -47,11 +47,11 @@ class TeamsNotifier:
         ) as exc:
             raise TeamsDeliveryError("Teams webhook delivery failed") from exc
 
-    @staticmethod
     def _build_payload(
-            changes: Sequence[WanChange],
-            current_ips: Mapping[str, str | None],
-            observed_at: datetime,
+        self,
+        changes: Sequence[WanChange],
+        current_ips: Mapping[str, str | None],
+        observed_at: datetime,
     ) -> dict[str, object]:
         change_facts = [
             {
@@ -68,6 +68,50 @@ class TeamsNotifier:
             for wan, current_ip in sorted(current_ips.items())
         ]
         timestamp = observed_at.astimezone(UTC).isoformat()
+        mention_entities: list[dict[str, object]] = [
+            {
+                "type": "mention",
+                "text": f"<at>{mention.name}</at>",
+                "mentioned": {"id": mention.id, "name": mention.name},
+            }
+            for mention in self._mentions
+        ]
+        body: list[dict[str, object]] = [
+            {
+                "type": "TextBlock",
+                "text": "⚠️公网出口 IP 地址变更通知",
+                "size": "Medium",
+                "weight": "Bolder",
+                "wrap": True,
+            },
+            {
+                "type": "TextBlock",
+                "text": f"探测时间: {timestamp}",
+                "wrap": True,
+            },
+            {
+                "type": "TextBlock",
+                "text": "变更内容",
+                "weight": "Bolder",
+                "spacing": "Medium",
+            },
+            {"type": "FactSet", "facts": change_facts},
+            {
+                "type": "TextBlock",
+                "text": "当前所有WAN口的公网出口IP",
+                "weight": "Bolder",
+                "spacing": "Medium",
+            },
+            {"type": "FactSet", "facts": current_facts},
+        ]
+        if mention_entities:
+            mention_text = " ".join(
+                f"<at>{mention.name}</at>" for mention in self._mentions
+            )
+            body.insert(
+                0,
+                {"type": "TextBlock", "text": mention_text, "wrap": True},
+            )
         return {
             "type": "message",
             "attachments": [
@@ -80,35 +124,8 @@ class TeamsNotifier:
                         ),
                         "type": "AdaptiveCard",
                         "version": "1.5",
-                        "body": [
-                            {
-                                "type": "TextBlock",
-                                "text": "⚠️公网出口 IP 地址变更通知",
-                                "size": "Medium",
-                                "weight": "Bolder",
-                                "wrap": True,
-                            },
-                            {
-                                "type": "TextBlock",
-                                "text": f"探测时间: {timestamp}",
-                                "wrap": True,
-                            },
-                            {
-                                "type": "TextBlock",
-                                "text": "变更内容",
-                                "weight": "Bolder",
-                                "spacing": "Medium",
-                            },
-                            {"type": "FactSet", "facts": change_facts},
-                            {
-                                "type": "TextBlock",
-                                "text": "当前所有WAN口的公网出口IP",
-                                "weight": "Bolder",
-                                "spacing": "Medium",
-                            },
-                            {"type": "FactSet", "facts": current_facts},
-                        ],
-                        "msteams": {"entities": []},
+                        "body": body,
+                        "msteams": {"entities": mention_entities},
                     },
                 }
             ],
