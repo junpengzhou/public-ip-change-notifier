@@ -47,7 +47,9 @@ async def test_teams_notifier_when_change_then_posts_adaptive_card_attachment() 
     assert "203.0.113.10" in payload_text
     assert "203.0.113.11" in payload_text
     assert "unknown" in payload_text
-    assert observed_at.isoformat() in payload_text
+    assert attachment["content"]["body"][1]["text"] == (
+        "变更时间: 2026-09-18T08:30:00Z"
+    )
 
 
 @pytest.mark.asyncio
