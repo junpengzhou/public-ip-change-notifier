@@ -1,4 +1,5 @@
 import os
+from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
 from unittest.mock import patch
 
@@ -8,7 +9,7 @@ from pydantic import ValidationError
 from public_ip_notifier.config import load_config
 
 
-def test_load_config_when_yaml_is_valid_then_reads_interval_and_wan_urls(
+def test_load_config_when_yaml_is_valid_then_reads_networks_and_wan_urls(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "config.yaml"
@@ -19,15 +20,23 @@ def test_load_config_when_yaml_is_valid_then_reads_interval_and_wan_urls(
         "  webhook_url: https://example.test/hook\n"
         "servers:\n"
         "  wan1:\n"
-        "    - https://ifconfig.me/ip\n"
-        "    - https://ipinfo.io/ip\n",
+        "    networks:\n"
+        "      - 203.0.113.0/24\n"
+        "      - 2001:db8::/32\n"
+        "    urls:\n"
+        "      - https://ifconfig.me/ip\n"
+        "      - https://ipinfo.io/ip\n",
         encoding="utf-8",
     )
 
     config = load_config(path)
 
     assert config.interval_seconds == 60
-    assert tuple(str(url) for url in config.servers["wan1"]) == (
+    assert config.servers["wan1"].networks == (
+        IPv4Network("203.0.113.0/24"),
+        IPv6Network("2001:db8::/32"),
+    )
+    assert tuple(str(url) for url in config.servers["wan1"].urls) == (
         "https://ifconfig.me/ip",
         "https://ipinfo.io/ip",
     )
@@ -49,7 +58,10 @@ def test_load_config_when_teams_mentions_are_configured_then_preserves_order_and
         "      id: lisi@example.com\n"
         "servers:\n"
         "  wan1:\n"
-        "    - https://example.test/ip\n",
+        "    networks:\n"
+        "      - 203.0.113.0/24\n"
+        "    urls:\n"
+        "      - https://example.test/ip\n",
         encoding="utf-8",
     )
 
@@ -71,7 +83,10 @@ def test_load_config_when_teams_mention_name_is_missing_then_rejects_configurati
         "    - id: zhangsan@example.com\n"
         "servers:\n"
         "  wan1:\n"
-        "    - https://example.test/ip\n",
+        "    networks:\n"
+        "      - 203.0.113.0/24\n"
+        "    urls:\n"
+        "      - https://example.test/ip\n",
         encoding="utf-8",
     )
 
@@ -90,7 +105,10 @@ def test_load_config_when_teams_mention_id_is_blank_then_rejects_configuration(
         "      id: '   '\n"
         "servers:\n"
         "  wan1:\n"
-        "    - https://example.test/ip\n",
+        "    networks:\n"
+        "      - 203.0.113.0/24\n"
+        "    urls:\n"
+        "      - https://example.test/ip\n",
         encoding="utf-8",
     )
 
@@ -103,7 +121,13 @@ def test_load_config_when_environment_overrides_interval_then_uses_override(
 ) -> None:
     path = tmp_path / "config.yaml"
     path.write_text(
-        "interval_seconds: 60\nservers:\n  wan1:\n    - https://example.test/ip\n",
+        "interval_seconds: 60\n"
+        "servers:\n"
+        "  wan1:\n"
+        "    networks:\n"
+        "      - 203.0.113.0/24\n"
+        "    urls:\n"
+        "      - https://example.test/ip\n",
         encoding="utf-8",
     )
 
@@ -118,7 +142,13 @@ def test_load_config_when_interval_is_non_positive_then_rejects_configuration(
 ) -> None:
     path = tmp_path / "config.yaml"
     path.write_text(
-        "interval_seconds: 0\nservers:\n  wan1:\n    - https://example.test/ip\n",
+        "interval_seconds: 0\n"
+        "servers:\n"
+        "  wan1:\n"
+        "    networks:\n"
+        "      - 203.0.113.0/24\n"
+        "    urls:\n"
+        "      - https://example.test/ip\n",
         encoding="utf-8",
     )
 
@@ -130,7 +160,58 @@ def test_load_config_when_wan_has_no_urls_then_rejects_configuration(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "config.yaml"
-    path.write_text("servers:\n  wan1: []\n", encoding="utf-8")
+    path.write_text(
+        "servers:\n  wan1:\n    networks:\n      - 203.0.113.0/24\n    urls: []\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError):
+        load_config(path)
+
+
+def test_load_config_when_wan_has_no_networks_then_rejects_configuration(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "servers:\n"
+        "  wan1:\n"
+        "    networks: []\n"
+        "    urls:\n"
+        "      - https://example.test/ip\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError):
+        load_config(path)
+
+
+def test_load_config_when_wan_network_is_invalid_then_rejects_configuration(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "servers:\n"
+        "  wan1:\n"
+        "    networks:\n"
+        "      - not-a-network\n"
+        "    urls:\n"
+        "      - https://example.test/ip\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError):
+        load_config(path)
+
+
+def test_load_config_when_legacy_url_list_is_used_then_rejects_configuration(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "servers:\n  wan1:\n    - https://example.test/ip\n",
+        encoding="utf-8",
+    )
 
     with pytest.raises(ValidationError):
         load_config(path)

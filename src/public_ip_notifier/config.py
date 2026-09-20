@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from ipaddress import IPv4Network, IPv6Network
 from pathlib import Path
 from typing import cast
 
@@ -36,25 +37,45 @@ class TeamsConfig(BaseModel):
     mentions: tuple[TeamsMention, ...] = ()
 
 
+class WanConfig(BaseModel):
+    """Validated probe URLs and allowed public networks for one WAN."""
+
+    networks: tuple[IPv4Network | IPv6Network, ...]
+    urls: tuple[HttpUrl, ...]
+
+    @field_validator("networks")
+    @classmethod
+    def validate_networks(
+        cls,
+        value: tuple[IPv4Network | IPv6Network, ...],
+    ) -> tuple[IPv4Network | IPv6Network, ...]:
+        if not value:
+            raise ValueError("each WAN must have at least one network")
+        return value
+
+    @field_validator("urls")
+    @classmethod
+    def validate_urls(cls, value: tuple[HttpUrl, ...]) -> tuple[HttpUrl, ...]:
+        if not value:
+            raise ValueError("each WAN must have at least one URL")
+        return value
+
+
 class AppConfig(BaseModel):
     """Validated settings required by the notifier service."""
 
     interval_seconds: PositiveInt = 60
     state_file: Path = Path("public-ip-state.json")
     teams: TeamsConfig = Field(default_factory=TeamsConfig)
-    servers: dict[str, tuple[HttpUrl, ...]]
+    servers: dict[str, WanConfig]
 
     @field_validator("servers")
     @classmethod
-    def validate_servers(
-        cls, value: dict[str, tuple[HttpUrl, ...]]
-    ) -> dict[str, tuple[HttpUrl, ...]]:
+    def validate_servers(cls, value: dict[str, WanConfig]) -> dict[str, WanConfig]:
         if not value:
             raise ValueError("at least one WAN must be configured")
         if any(not name.strip() for name in value):
             raise ValueError("WAN names must not be empty")
-        if any(not urls for urls in value.values()):
-            raise ValueError("each WAN must have at least one URL")
         return value
 
 
