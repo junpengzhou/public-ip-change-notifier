@@ -15,9 +15,11 @@ servers:
     networks:
       - "218.0.0.0/8"
     urls:
+      - "https://ifconfig.co/ip"
       - "https://ifconfig.me/ip"
       - "https://ipinfo.io/ip"
       - "https://api-ipv4.ip.sb/ip"
+      - "https://v4.ident.me"
   wan2:
     networks:
       - "120.0.0.0/8"
@@ -25,3 +27,4 @@ servers:
       - "https://icanhazip.com"
       - "https://ipecho.net/plain"
       - "https://checkip.amazonaws.com"
+      - "https://myexternalip.com/raw"
