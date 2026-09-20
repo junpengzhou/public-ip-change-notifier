@@ -43,15 +43,26 @@ teams:
 
 servers:
   wan1:
-    - "https://ifconfig.me/ip"
-    - "https://ipinfo.io/ip"
+    networks:
+      - "218.0.0.0/8"
+    urls:
+      - "https://ifconfig.me/ip"
+      - "https://ipinfo.io/ip"
   wan2:
-    - "https://api.ipify.org"
+    networks:
+      - "120.0.0.0/8"
+    urls:
+      - "https://api.ipify.org"
 ```
 
-URLs for one WAN are tried in order. The first response that is a valid IP is
-used. If every URL fails, the previous value is retained and the next URL list
-is retried on the next cycle.
+Each WAN requires at least one network in IPv4 or IPv6 CIDR notation and one
+probe URL. Multiple networks may be supplied when one WAN has more than one
+valid public range. URLs for one WAN are tried in order.
+
+Each returned address must belong to at least one network configured for that
+WAN. An address outside every allowed network is logged and the next URL is
+tried. If no URL returns an allowed address, the previous value is retained and
+no change notification is sent.
 
 The following user-level environment variables override YAML values:
 

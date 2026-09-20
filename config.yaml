@@ -8,11 +8,20 @@ teams:
   # Set this value or use PUBLIC_IP_NOTIFIER_TEAMS_WEBHOOK_URL.
   webhook_url: null
 
-# URLs under one WAN are tried in order until one returns a valid IP address.
-# Router policy routing must send each URL through the intended WAN interface.
+# Each WAN requires at least one allowed CIDR and one probe URL.
+# URLs are tried in order and must be routed through the intended WAN interface.
 servers:
   wan1:
-    - "https://ifconfig.me/ip"
-    - "https://ipinfo.io/ip"
+    networks:
+      - "218.0.0.0/8"
+    urls:
+      - "https://ifconfig.me/ip"
+      - "https://ipinfo.io/ip"
+      - "https://api-ipv4.ip.sb/ip"
   wan2:
-    - "https://icanhazip.com"
+    networks:
+      - "120.0.0.0/8"
+    urls:
+      - "https://icanhazip.com"
+      - "https://ipecho.net/plain"
+      - "https://checkip.amazonaws.com"
