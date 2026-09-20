@@ -3,6 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from ipaddress import IPv4Network, IPv6Network
+from typing import TypeAlias
+
+IpNetwork: TypeAlias = IPv4Network | IPv6Network
+
+
+@dataclass(frozen=True, slots=True)
+class WanProbeTarget:
+    """Probe URLs and allowed IP networks for one WAN."""
+
+    urls: tuple[str, ...]
+    networks: tuple[IpNetwork, ...]
 
 
 @dataclass(frozen=True, slots=True)

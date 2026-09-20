@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import ipaddress
-from collections.abc import Sequence
 from typing import Protocol
 
 import httpx
 import structlog
 
-from public_ip_notifier.domain.models import WanObservation
+from public_ip_notifier.domain.models import WanObservation, WanProbeTarget
 
 
 class ProbeLogger(Protocol):
@@ -30,10 +29,10 @@ class IpProbe:
         self._client = client
         self._logger = logger or structlog.get_logger(__name__)
 
-    async def probe_wan(self, wan: str, urls: Sequence[str]) -> WanObservation:
-        """Return the first valid IP returned by a WAN's configured URLs."""
+    async def probe_wan(self, wan: str, target: WanProbeTarget) -> WanObservation:
+        """Return the first allowed IP returned by a WAN's configured URLs."""
 
-        for url in urls:
+        for url in target.urls:
             try:
                 response = await self._client.get(url)
                 response.raise_for_status()
@@ -51,6 +50,17 @@ class IpProbe:
                     error_type=type(exc).__name__,
                 )
                 continue
+
+            if not any(address in network for network in target.networks):
+                self._logger.warning(
+                    "probe_ip_outside_allowed_networks",
+                    wan=wan,
+                    url=url,
+                    ip=str(address),
+                    allowed_networks=[str(network) for network in target.networks],
+                )
+                continue
+
             return WanObservation(wan, str(address), url)
 
         return WanObservation(wan, None, None)
