@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from ipaddress import IPv4Network
 
 import pytest
 
-from public_ip_notifier.domain.models import WanChange, WanObservation
+from public_ip_notifier.domain.models import WanChange, WanObservation, WanProbeTarget
 from public_ip_notifier.infra.teams import TeamsDeliveryError
 from public_ip_notifier.services.monitor import MonitorService
 
@@ -14,9 +15,19 @@ class FakeProber:
     def __init__(self, observations: Mapping[str, str | None]) -> None:
         self._observations = observations
 
-    async def probe_wan(self, wan: str, urls: Sequence[str]) -> WanObservation:
+    async def probe_wan(self, wan: str, target: WanProbeTarget) -> WanObservation:
         ip = self._observations[wan]
-        return WanObservation(wan, ip, urls[0] if ip is not None else None)
+        return WanObservation(wan, ip, target.urls[0] if ip is not None else None)
+
+
+class RecordingProber(FakeProber):
+    def __init__(self, observations: Mapping[str, str | None]) -> None:
+        super().__init__(observations)
+        self.targets: list[tuple[str, WanProbeTarget]] = []
+
+    async def probe_wan(self, wan: str, target: WanProbeTarget) -> WanObservation:
+        self.targets.append((wan, target))
+        return await super().probe_wan(wan, target)
 
 
 class FakeStore:
@@ -59,13 +70,35 @@ def make_service(
     notifier: FakeNotifier | None = None,
 ) -> tuple[MonitorService, FakeStore, FakeNotifier | None]:
     store = FakeStore(previous)
+    targets = {
+        wan: WanProbeTarget(
+            urls=(f"https://{wan}.test/ip",),
+            networks=(IPv4Network("0.0.0.0/0"),),
+        )
+        for wan in observations
+    }
     service = MonitorService(
-        {wan: (f"https://{wan}.test/ip",) for wan in observations},
+        targets,
         FakeProber(observations),
         store,
         notifier,
     )
     return service, store, notifier
+
+
+@pytest.mark.asyncio
+async def test_monitor_when_running_then_passes_complete_target_to_prober() -> None:
+    target = WanProbeTarget(
+        urls=("https://wan1.test/ip",),
+        networks=(IPv4Network("218.0.0.0/8"),),
+    )
+    prober = RecordingProber({"wan1": "218.10.20.30"})
+    store = FakeStore({})
+    service = MonitorService({"wan1": target}, prober, store)
+
+    await service.run_once()
+
+    assert prober.targets == [("wan1", target)]
 
 
 @pytest.mark.asyncio

@@ -1,15 +1,18 @@
 import asyncio
 from collections.abc import Callable
+from ipaddress import IPv4Network
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
+import public_ip_notifier.cli as cli
 from public_ip_notifier.cli import (
     _install_shutdown_handlers,
     build_parser,
     run_loop,
 )
+from public_ip_notifier.config import WanConfig
 from public_ip_notifier.services.monitor import CycleResult
 
 
@@ -39,6 +42,20 @@ class FakeSignalLoop:
         *args: object,
     ) -> None:
         self.callbacks.append(callback)
+
+
+def test_build_wan_targets_when_config_is_valid_then_preserves_values() -> None:
+    server = WanConfig.model_validate(
+        {
+            "networks": ["218.0.0.0/8"],
+            "urls": ["https://example.test/ip"],
+        }
+    )
+
+    targets = cli._build_wan_targets({"wan1": server})
+
+    assert targets["wan1"].urls == ("https://example.test/ip",)
+    assert targets["wan1"].networks == (IPv4Network("218.0.0.0/8"),)
 
 
 def test_build_parser_when_config_and_once_are_given_then_parses_arguments() -> None:

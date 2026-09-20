@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import logging
 import signal
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Protocol
 
@@ -13,7 +14,8 @@ import httpx
 import structlog
 from pydantic import ValidationError
 
-from public_ip_notifier.config import ConfigLoadError, load_config
+from public_ip_notifier.config import ConfigLoadError, WanConfig, load_config
+from public_ip_notifier.domain.models import WanProbeTarget
 from public_ip_notifier.infra.probes import IpProbe
 from public_ip_notifier.infra.state_store import StateStore, StateStoreError
 from public_ip_notifier.infra.teams import TeamsNotifier
@@ -82,14 +84,26 @@ def _install_shutdown_handlers(stop_event: asyncio.Event) -> None:
             signal.signal(signal_value, request_shutdown)
 
 
+def _build_wan_targets(
+    servers: Mapping[str, WanConfig],
+) -> dict[str, WanProbeTarget]:
+    """Convert validated WAN configuration into domain probe targets."""
+
+    return {
+        wan: WanProbeTarget(
+            urls=tuple(str(url) for url in server.urls),
+            networks=server.networks,
+        )
+        for wan, server in servers.items()
+    }
+
+
 async def _run(config_path: Path, once: bool) -> None:
     config = load_config(config_path)
     stop_event = asyncio.Event()
     _install_shutdown_handlers(stop_event)
     logger = structlog.get_logger("public_ip_notifier")
-    servers = {
-        wan: tuple(str(url) for url in urls) for wan, urls in config.servers.items()
-    }
+    servers = _build_wan_targets(config.servers)
     webhook_url = config.teams.webhook_url
 
     async with httpx.AsyncClient(timeout=10.0) as client:

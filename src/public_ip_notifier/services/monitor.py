@@ -10,14 +10,14 @@ from typing import Protocol
 
 import structlog
 
-from public_ip_notifier.domain.models import WanChange, WanObservation
+from public_ip_notifier.domain.models import WanChange, WanObservation, WanProbeTarget
 from public_ip_notifier.infra.teams import TeamsDeliveryError
 
 
 class WanProber(Protocol):
     """Probe interface required by the monitor service."""
 
-    async def probe_wan(self, wan: str, urls: Sequence[str]) -> WanObservation:
+    async def probe_wan(self, wan: str, target: WanProbeTarget) -> WanObservation:
         """Collect one observation for a WAN."""
 
 
@@ -67,13 +67,13 @@ class MonitorService:
 
     def __init__(
         self,
-        servers: Mapping[str, Sequence[str]],
+        servers: Mapping[str, WanProbeTarget],
         prober: WanProber,
         state_store: StateRepository,
         notifier: Notifier | None = None,
         logger: MonitorLogger | None = None,
     ) -> None:
-        self._servers = {wan: tuple(urls) for wan, urls in servers.items()}
+        self._servers = dict(servers)
         self._prober = prober
         self._state_store = state_store
         self._notifier = notifier
@@ -84,7 +84,10 @@ class MonitorService:
 
         previous = await self._state_store.load()
         observations = await asyncio.gather(
-            *(self._prober.probe_wan(wan, urls) for wan, urls in self._servers.items())
+            *(
+                self._prober.probe_wan(wan, target)
+                for wan, target in self._servers.items()
+            )
         )
         current_ips: dict[str, str | None] = {
             wan: previous.get(wan) for wan in self._servers
