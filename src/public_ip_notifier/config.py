@@ -16,6 +16,7 @@ class ConfigLoadError(RuntimeError):
     """Raised when the YAML configuration cannot be loaded."""
 
 
+# noinspection PyNestedDecorators
 class TeamsMention(BaseModel):
     """A Teams user that can be mentioned in a notification card."""
 
@@ -37,6 +38,7 @@ class TeamsConfig(BaseModel):
     mentions: tuple[TeamsMention, ...] = ()
 
 
+# noinspection PyNestedDecorators
 class WanConfig(BaseModel):
     """Validated probe URLs and allowed public networks for one WAN."""
 
@@ -61,6 +63,7 @@ class WanConfig(BaseModel):
         return value
 
 
+# noinspection PyNestedDecorators
 class AppConfig(BaseModel):
     """Validated settings required by the notifier service."""
 
