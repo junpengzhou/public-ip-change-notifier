@@ -62,6 +62,69 @@ class CycleResult:
     changes: tuple[WanChange, ...]
 
 
+class _WanCandidateStream:
+    """Lazily load valid observations from one WAN's remaining URLs."""
+
+    def __init__(
+        self,
+        wan: str,
+        target: WanProbeTarget,
+        prober: WanProber,
+    ) -> None:
+        self._wan = wan
+        self._target = target
+        self._prober = prober
+        self._next_url_index = 0
+        self._candidates: list[WanObservation] = []
+        self._exhausted = False
+
+    @property
+    def has_candidate(self) -> bool:
+        """Return whether at least one valid IP has been observed."""
+
+        return bool(self._candidates)
+
+    @property
+    def ips(self) -> tuple[str, ...]:
+        """Return the distinct IP candidates loaded so far."""
+
+        return tuple(
+            candidate.ip for candidate in self._candidates if candidate.ip is not None
+        )
+
+    async def candidate(self, index: int) -> WanObservation | None:
+        """Return a candidate by URL order, loading remaining URLs as needed."""
+
+        while len(self._candidates) <= index and not self._exhausted:
+            await self._load_next()
+        if index >= len(self._candidates):
+            return None
+        return self._candidates[index]
+
+    async def _load_next(self) -> None:
+        remaining_urls = self._target.urls[self._next_url_index :]
+        if not remaining_urls:
+            self._exhausted = True
+            return
+
+        remaining_target = WanProbeTarget(
+            urls=remaining_urls,
+            networks=self._target.networks,
+        )
+        observation = await self._prober.probe_wan(self._wan, remaining_target)
+        if observation.ip is None:
+            self._exhausted = True
+            return
+
+        source_url = observation.source_url
+        if source_url is None or source_url not in remaining_urls:
+            raise ValueError("probe returned an IP without a configured source URL")
+        self._next_url_index += remaining_urls.index(source_url) + 1
+
+        if observation.ip not in self.ips:
+            self._candidates.append(observation)
+
+
 class MonitorService:
     """Run one complete collection/compare/notify cycle."""
 
@@ -79,16 +142,62 @@ class MonitorService:
         self._notifier = notifier
         self._logger = logger or structlog.get_logger(__name__)
 
+    async def _select_consistent_observations(
+        self,
+        streams: Mapping[str, _WanCandidateStream],
+        previous: Mapping[str, str],
+    ) -> tuple[WanObservation, ...] | None:
+        active_streams = [
+            (wan, stream) for wan, stream in streams.items() if stream.has_candidate
+        ]
+        selected: list[WanObservation] = []
+
+        async def search(index: int, used_ips: set[str]) -> bool:
+            if index == len(active_streams):
+                return True
+
+            wan, stream = active_streams[index]
+            forbidden_ips = {
+                ip for other_wan, ip in previous.items() if other_wan != wan
+            }
+            candidate_index = 0
+            while (candidate := await stream.candidate(candidate_index)) is not None:
+                candidate_index += 1
+                candidate_ip = candidate.ip
+                if candidate_ip is None:
+                    continue
+                if candidate_ip in forbidden_ips or candidate_ip in used_ips:
+                    continue
+
+                selected.append(candidate)
+                if await search(index + 1, used_ips | {candidate_ip}):
+                    return True
+                selected.pop()
+
+            return False
+
+        if not await search(0, set()):
+            return None
+        return tuple(selected)
+
     async def run_once(self) -> CycleResult:
         """Collect every WAN once and apply the baseline/notification rules."""
 
         previous = await self._state_store.load()
-        observations = await asyncio.gather(
-            *(
-                self._prober.probe_wan(wan, target)
-                for wan, target in self._servers.items()
+        streams = {
+            wan: _WanCandidateStream(wan, target, self._prober)
+            for wan, target in self._servers.items()
+        }
+        await asyncio.gather(*(stream.candidate(0) for stream in streams.values()))
+        observations = await self._select_consistent_observations(streams, previous)
+        if observations is None:
+            self._logger.warning(
+                "wan_ip_cycle_discarded",
+                reason="cross_wan_ip_conflict",
+                candidates={wan: stream.ips for wan, stream in streams.items()},
             )
-        )
+            return CycleResult(False, False, ())
+
         current_ips: dict[str, str | None] = {
             wan: previous.get(wan) for wan in self._servers
         }
