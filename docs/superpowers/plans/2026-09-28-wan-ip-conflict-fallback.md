@@ -22,7 +22,7 @@
 - Modify: `tests/unit/test_monitor.py`
 - Modify: `src/public_ip_notifier/services/monitor.py`
 
-- [ ] **Step 1: Add URL-aware test doubles**
+- [x] **Step 1: Add URL-aware test doubles**
 
 Add these test doubles after `RecordingProber` in `tests/unit/test_monitor.py`:
 
@@ -81,7 +81,7 @@ def make_url_aware_service(
     return service, store, prober
 ```
 
-- [ ] **Step 2: Write the failing current-cycle duplicate fallback test**
+- [x] **Step 2: Write the failing current-cycle duplicate fallback test**
 
 Append this test to `tests/unit/test_monitor.py`:
 
@@ -115,7 +115,7 @@ async def test_monitor_when_initial_ips_repeat_then_uses_remaining_url() -> None
     assert ("wan1", ("https://wan1-b.test/ip",)) not in prober.calls
 ```
 
-- [ ] **Step 3: Write the failing persisted-state collision fallback test**
+- [x] **Step 3: Write the failing persisted-state collision fallback test**
 
 Append:
 
@@ -150,7 +150,7 @@ async def test_monitor_when_ip_matches_other_wan_state_then_uses_remaining_url()
     }
 ```
 
-- [ ] **Step 4: Write the failing backtracking test**
+- [x] **Step 4: Write the failing backtracking test**
 
 This case proves the implementation does not greedily discard a cycle when the
 first WAN can move to another candidate and leave its first candidate for the
@@ -181,7 +181,7 @@ async def test_monitor_when_greedy_choice_blocks_wan_then_backtracks() -> None:
     assert store.saved == {"wan1": "192.0.2.11", "wan2": "192.0.2.10"}
 ```
 
-- [ ] **Step 5: Write the failing atomic-discard test**
+- [x] **Step 5: Write the failing atomic-discard test**
 
 Append:
 
@@ -222,7 +222,7 @@ can construct the result:
 from public_ip_notifier.services.monitor import CycleResult, MonitorService
 ```
 
-- [ ] **Step 6: Run the four tests and verify RED**
+- [x] **Step 6: Run the four tests and verify RED**
 
 Run:
 
@@ -234,7 +234,7 @@ Expected: the four new tests fail because `MonitorService` accepts the first
 successful observation from each WAN, does not try remaining URLs after a
 cross-WAN conflict, and still persists duplicate results.
 
-- [ ] **Step 7: Add the lazy WAN candidate stream**
+- [x] **Step 7: Add the lazy WAN candidate stream**
 
 Add this private class immediately before `MonitorService` in
 `src/public_ip_notifier/services/monitor.py`:
@@ -305,7 +305,7 @@ class _WanCandidateStream:
             self._candidates.append(observation)
 ```
 
-- [ ] **Step 8: Add deterministic asynchronous backtracking**
+- [x] **Step 8: Add deterministic asynchronous backtracking**
 
 Add this private method inside `MonitorService`, immediately before
 `run_once()`:
@@ -350,7 +350,7 @@ Add this private method inside `MonitorService`, immediately before
         return tuple(selected)
 ```
 
-- [ ] **Step 9: Integrate candidate selection before change comparison**
+- [x] **Step 9: Integrate candidate selection before change comparison**
 
 Replace the initial probe block in `MonitorService.run_once()`:
 
@@ -385,7 +385,7 @@ Leave the existing `current_ips`, `changes`, notifier, and state-save logic
 unchanged. Empty streams represent ordinary all-URL probe failures and are
 omitted from selection, so their previous state continues to be preserved.
 
-- [ ] **Step 10: Run monitor tests and verify GREEN**
+- [x] **Step 10: Run monitor tests and verify GREEN**
 
 Run:
 
@@ -396,7 +396,7 @@ uv run pytest tests/unit/test_monitor.py -q
 Expected: all monitor tests pass, including the four new conflict cases and the
 existing ordinary probe-failure behavior.
 
-- [ ] **Step 11: Run focused lint, formatting, and type checks**
+- [x] **Step 11: Run focused lint, formatting, and type checks**
 
 Run:
 
@@ -410,7 +410,7 @@ Expected: every command exits with code 0. If formatting is required, run
 `uv run ruff format` on the two files, review the diff, and repeat all three
 checks.
 
-- [ ] **Step 12: Commit the tested behavior**
+- [x] **Step 12: Commit the tested behavior**
 
 ```powershell
 git add src/public_ip_notifier/services/monitor.py tests/unit/test_monitor.py
@@ -422,7 +422,7 @@ git commit -m "fix(monitor): reject cross-WAN IP conflicts"
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Add the runtime behavior paragraph**
+- [x] **Step 1: Add the runtime behavior paragraph**
 
 After the paragraph ending in `no change notification is sent.` add:
 
@@ -434,7 +434,7 @@ conflict-free combination exists, the complete cycle is discarded without a
 state update or notification.
 ```
 
-- [ ] **Step 2: Check documentation formatting and scope**
+- [x] **Step 2: Check documentation formatting and scope**
 
 Run:
 
@@ -446,7 +446,7 @@ git diff -- README.md
 Expected: `git diff --check` exits with code 0 and the README diff contains
 only the new conflict behavior paragraph.
 
-- [ ] **Step 3: Commit the documentation**
+- [x] **Step 3: Commit the documentation**
 
 ```powershell
 git add README.md
@@ -458,7 +458,7 @@ git commit -m "docs(monitor): explain WAN IP conflict fallback"
 **Files:**
 - Verify all source, tests, and documentation changed by this plan.
 
-- [ ] **Step 1: Run Ruff lint**
+- [x] **Step 1: Run Ruff lint**
 
 Run:
 
@@ -468,7 +468,7 @@ uv run ruff check .
 
 Expected: exit code 0 and `All checks passed!`.
 
-- [ ] **Step 2: Run Ruff formatting check**
+- [x] **Step 2: Run Ruff formatting check**
 
 Run:
 
@@ -478,7 +478,7 @@ uv run ruff format --check .
 
 Expected: exit code 0 and all Python files already formatted.
 
-- [ ] **Step 3: Run strict type checking on the changed module**
+- [x] **Step 3: Run strict type checking on the changed module**
 
 Run:
 
@@ -488,7 +488,7 @@ uv run mypy src/public_ip_notifier/services/monitor.py
 
 Expected: exit code 0 with no type errors.
 
-- [ ] **Step 4: Run the full offline test suite**
+- [x] **Step 4: Run the full offline test suite**
 
 Run:
 
@@ -498,7 +498,7 @@ uv run pytest -q
 
 Expected: exit code 0 with every test passing and no real network access.
 
-- [ ] **Step 5: Inspect final repository state**
+- [x] **Step 5: Inspect final repository state**
 
 Run:
 

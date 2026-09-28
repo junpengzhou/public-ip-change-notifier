@@ -64,6 +64,12 @@ WAN. An address outside every allowed network is logged and the next URL is
 tried. If no URL returns an allowed address, the previous value is retained and
 no change notification is sent.
 
+The monitor also rejects an IP returned for more than one WAN, or an IP that
+matches another WAN's persisted value. It tries the affected WAN's remaining
+URLs and uses the first conflict-free combination in configured order. If no
+conflict-free combination exists, the complete cycle is discarded without a
+state update or notification.
+
 The following user-level environment variables override YAML values:
 
 - `PUBLIC_IP_NOTIFIER_TEAMS_WEBHOOK_URL`
