@@ -47,6 +47,23 @@ class UrlAwareProber:
         return WanObservation(wan, None, None)
 
 
+class SequencedUrlProber:
+    def __init__(
+        self,
+        responses: Mapping[tuple[str, str], Sequence[str | None]],
+    ) -> None:
+        self._responses = {key: list(values) for key, values in responses.items()}
+        self.calls: list[tuple[str, tuple[str, ...]]] = []
+
+    async def probe_wan(self, wan: str, target: WanProbeTarget) -> WanObservation:
+        self.calls.append((wan, target.urls))
+        for url in target.urls:
+            ip = self._responses[(wan, url)].pop(0)
+            if ip is not None:
+                return WanObservation(wan, ip, url)
+        return WanObservation(wan, None, None)
+
+
 class RecordingMonitorLogger:
     def __init__(self) -> None:
         self.warnings: list[tuple[str, dict[str, object]]] = []
@@ -381,3 +398,95 @@ async def test_monitor_when_all_ip_combinations_conflict_then_discards_cycle() -
     assert store.saved is None
     assert notifier.calls == []
     assert logger.warnings[0][0] == "wan_ip_cycle_discarded"
+
+
+@pytest.mark.asyncio
+async def test_monitor_when_url_is_duplicated_then_consumes_each_position_once() -> (
+    None
+):
+    duplicate_url = "https://duplicate.test/ip"
+    fallback_url = "https://fallback.test/ip"
+    target = WanProbeTarget(
+        urls=(duplicate_url, duplicate_url, fallback_url),
+        networks=(IPv4Network("0.0.0.0/0"),),
+    )
+    prober = SequencedUrlProber(
+        {
+            ("wan1", duplicate_url): (
+                None,
+                "198.51.100.20",
+                "192.0.2.99",
+            ),
+            ("wan1", fallback_url): ("203.0.113.11",),
+        }
+    )
+    store = FakeStore({"wan1": "203.0.113.10", "retired-wan": "198.51.100.20"})
+    service = MonitorService({"wan1": target}, prober, store)
+
+    result = await service.run_once()
+
+    assert result.changes == (WanChange("wan1", "203.0.113.10", "203.0.113.11"),)
+    assert store.saved == {"wan1": "203.0.113.11"}
+    assert prober.calls == [
+        ("wan1", (duplicate_url,)),
+        ("wan1", (duplicate_url,)),
+        ("wan1", (fallback_url,)),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_monitor_when_candidate_ip_repeats_then_uses_later_distinct_ip() -> None:
+    urls = (
+        "https://first.test/ip",
+        "https://second.test/ip",
+        "https://third.test/ip",
+    )
+    service, store, prober = make_url_aware_service(
+        previous={"wan1": "203.0.113.10", "retired-wan": "198.51.100.20"},
+        urls={"wan1": urls},
+        responses={
+            ("wan1", urls[0]): "198.51.100.20",
+            ("wan1", urls[1]): "198.51.100.20",
+            ("wan1", urls[2]): "203.0.113.11",
+        },
+    )
+
+    result = await service.run_once()
+
+    assert result.changes == (WanChange("wan1", "203.0.113.10", "203.0.113.11"),)
+    assert store.saved == {"wan1": "203.0.113.11"}
+    assert prober.calls == [
+        ("wan1", (urls[0],)),
+        ("wan1", (urls[1],)),
+        ("wan1", (urls[2],)),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_monitor_when_one_wan_probe_fails_then_other_wan_change_continues() -> (
+    None
+):
+    notifier = FakeNotifier()
+    urls = {
+        "wan1": ("https://wan1-a.test/ip", "https://wan1-b.test/ip"),
+        "wan2": ("https://wan2.test/ip",),
+    }
+    service, store, _prober = make_url_aware_service(
+        previous={"wan1": "203.0.113.10", "wan2": "198.51.100.20"},
+        urls=urls,
+        responses={
+            ("wan1", urls["wan1"][0]): None,
+            ("wan1", urls["wan1"][1]): None,
+            ("wan2", urls["wan2"][0]): "198.51.100.21",
+        },
+        notifier=notifier,
+    )
+
+    result = await service.run_once()
+
+    assert result.notified is True
+    assert result.changes == (WanChange("wan2", "198.51.100.20", "198.51.100.21"),)
+    assert store.saved == {
+        "wan1": "203.0.113.10",
+        "wan2": "198.51.100.21",
+    }

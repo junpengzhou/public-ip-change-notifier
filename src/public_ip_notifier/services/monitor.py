@@ -102,27 +102,28 @@ class _WanCandidateStream:
         return self._candidates[index]
 
     async def _load_next(self) -> None:
-        remaining_urls = self._target.urls[self._next_url_index :]
-        if not remaining_urls:
-            self._exhausted = True
-            return
+        while self._next_url_index < len(self._target.urls):
+            url = self._target.urls[self._next_url_index]
+            self._next_url_index += 1
+            single_url_target = WanProbeTarget(
+                urls=(url,),
+                networks=self._target.networks,
+            )
+            observation = await self._prober.probe_wan(
+                self._wan,
+                single_url_target,
+            )
+            if observation.ip is None:
+                continue
+            if observation.source_url != url:
+                raise ValueError("probe returned an IP from an unexpected source URL")
+            if observation.ip in self.ips:
+                continue
 
-        remaining_target = WanProbeTarget(
-            urls=remaining_urls,
-            networks=self._target.networks,
-        )
-        observation = await self._prober.probe_wan(self._wan, remaining_target)
-        if observation.ip is None:
-            self._exhausted = True
-            return
-
-        source_url = observation.source_url
-        if source_url is None or source_url not in remaining_urls:
-            raise ValueError("probe returned an IP without a configured source URL")
-        self._next_url_index += remaining_urls.index(source_url) + 1
-
-        if observation.ip not in self.ips:
             self._candidates.append(observation)
+            return
+
+        self._exhausted = True
 
 
 class MonitorService:
