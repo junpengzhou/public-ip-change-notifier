@@ -35,10 +35,10 @@ class Notifier(Protocol):
     """Notification interface required by the monitor service."""
 
     async def send(
-        self,
-        changes: Sequence[WanChange],
-        current_ips: Mapping[str, str | None],
-        observed_at: datetime,
+            self,
+            changes: Sequence[WanChange],
+            current_ips: Mapping[str, str | None],
+            observed_at: datetime,
     ) -> None:
         """Deliver one aggregated change notification."""
 
@@ -66,10 +66,10 @@ class _WanCandidateStream:
     """Lazily load valid observations from one WAN's remaining URLs."""
 
     def __init__(
-        self,
-        wan: str,
-        target: WanProbeTarget,
-        prober: WanProber,
+            self,
+            wan: str,
+            target: WanProbeTarget,
+            prober: WanProber,
     ) -> None:
         self._wan = wan
         self._target = target
@@ -130,12 +130,12 @@ class MonitorService:
     """Run one complete collection/compare/notify cycle."""
 
     def __init__(
-        self,
-        servers: Mapping[str, WanProbeTarget],
-        prober: WanProber,
-        state_store: StateRepository,
-        notifier: Notifier | None = None,
-        logger: MonitorLogger | None = None,
+            self,
+            servers: Mapping[str, WanProbeTarget],
+            prober: WanProber,
+            state_store: StateRepository,
+            notifier: Notifier | None = None,
+            logger: MonitorLogger | None = None,
     ) -> None:
         self._servers = dict(servers)
         self._prober = prober
@@ -143,10 +143,10 @@ class MonitorService:
         self._notifier = notifier
         self._logger = logger or structlog.get_logger(__name__)
 
+    @staticmethod
     async def _select_consistent_observations(
-        self,
-        streams: Mapping[str, _WanCandidateStream],
-        previous: Mapping[str, str],
+            streams: Mapping[str, _WanCandidateStream],
+            previous: Mapping[str, str],
     ) -> tuple[WanObservation, ...] | None:
         active_streams = [
             (wan, stream) for wan, stream in streams.items() if stream.has_candidate
